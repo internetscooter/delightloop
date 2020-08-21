@@ -13,7 +13,7 @@ Live Current Version
 
 [Delight Loop](https://internetscooter.github.io/delightloop/src/main/webapp/?ui=min) Demo
 
-[app.delightloop.com](http://app.delightloop.com/) Github page
+[app.delightloop.com](https://app.delightloop.com/) Github page
 
 License
 -------
