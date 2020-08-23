@@ -2,7 +2,7 @@ About
 -----
 This is a digital whiteboard tailored to [Delight Loop](https://www.delightloop.com) Prosocial workshops and is derived from [diagrams.net](https://app.diagrams.net). This is a specialised version aimed at realtime team collaboration and [Prosocial](https://www.prosocial.world) implementation.
 
-![Delight Loop Example](delightloop.jpg)
+![Delight Loop Example](delightloop_network.png)
 
 
 Development
