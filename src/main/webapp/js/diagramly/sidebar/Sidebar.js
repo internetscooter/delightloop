@@ -41,8 +41,8 @@
 	
 	Sidebar.prototype.gcp2 = ['Paths', 'Zones', 'Service Cards', 'Compute', 'API Management', 'Security', 'Data Analytics', 'Data Transfer', 'Cloud AI', 'Internet of Things', 'Databases', 'Storage', 'Management Tools', 'Networking', 'Developer Tools', 'Expanded Product Cards', 'User Device Cards', 'Product Cards', 'General Icons', 'Icons AI Machine Learning', 'Icons Compute', 'Icons Data Analytics', 'Icons Management Tools', 'Icons Networking', 'Icons Developer Tools', 'Icons API Management', 'Icons Internet of Things', 'Icons Databases', 'Icons Storage', 'Icons Security', 'Icons Migration', 'Icons Hybrid and Multi Cloud'];
 	
-	Sidebar.prototype.rack = ['General', 'APC', 'Cisco', 'Dell', 'F5', 'HP', 'IBM', 'Oracle'];
-
+    Sidebar.prototype.rack = ['General', 'APC', 'Cisco', 'Dell', 'F5', 'HP', 'HPE Aruba Gateways Controllers', 'HPE Aruba Security', 'HPE Aruba Switches', 'IBM', 'Oracle'];
+    
 	Sidebar.prototype.pids = ['Agitators', 'Apparatus Elements', 'Centrifuges', 'Compressors', 'Compressors ISO', 'Crushers Grinding', 
                               'Driers', 'Engines', 'Feeders', 'Filters', 'Fittings', 'Flow Sensors', 'Heat Exchangers', 'Instruments', 'Misc',
                               'Mixers', 'Piping', 'Pumps', 'Pumps DIN', 'Pumps ISO', 'Separators', 'Shaping Machines', 'Valves', 'Vessels'];
@@ -354,22 +354,58 @@
 		
 		return false;
 	};
-	
+
 	/**
 	 * 
 	 */
-	Sidebar.prototype.showEntries = function(stc, remember, force)
+	Sidebar.prototype.showEntries = function(entries, remember, force)
 	{
-		this.libs = (stc != null && (force || stc.length > 0)) ? stc : ((urlParams['libs'] != null &&
-			urlParams['libs'].length > 0) ? decodeURIComponent(urlParams['libs']) :
-			((mxSettings != null && mxSettings.settings != null) ? mxSettings.getLibraries() :
-			this.defaultEntries));
-		var tmp = this.libs.split(';');
+		var all = [];
 		
-		// Maps library names via the alias table
-		for (var i = 0; i < tmp.length; i++)
+		if (remember)
 		{
-			tmp[i] = this.libAliases[tmp[i]] || tmp[i];
+			mxSettings.setLibraries(entries);
+			mxSettings.save();
+		}
+		
+		if (entries != null && (force || entries.length > 0))
+		{
+			all.push(entries);
+		}
+		else 
+		{
+			var done = false;
+			
+			if (urlParams['libs'] != null && urlParams['libs'].length > 0) 
+			{
+				all.push(decodeURIComponent(urlParams['libs']));
+				done = this.editorUi.getServiceName() == 'draw.io';
+			}
+			
+			// Libs parameter overrides configuration for online app so that
+			// links can be created to show just the specifies libraries
+			if (!done)
+			{
+				if (mxSettings != null && mxSettings.settings != null) 
+				{
+					all.push(mxSettings.getLibraries());
+				}
+				else 
+				{
+					all.push(this.defaultEntries);
+				}
+			}
+		}
+		
+		// Merges array of semicolon separated strings into a single array
+		var temp = all.join(';').split(';');
+		
+		// Resolves aliases and creates lookup
+		var visible = {};
+		
+		for (var i = 0; i < temp.length; i++)
+		{
+			visible[this.libAliases[temp[i]] || temp[i]] = true; 
 		}
 		
 		for (var i = 0; i < this.configuration.length; i++)
@@ -379,7 +415,7 @@
 			{
 				this.showPalettes(this.configuration[i].prefix || '',
 					this.configuration[i].libs || [this.configuration[i].id],
-					mxUtils.indexOf(tmp, this.configuration[i].id) >= 0);
+					visible[this.configuration[i].id] == true);
 			}
 		}
 		
@@ -402,16 +438,10 @@
 							libs.push(entry.id + '.' + k);
 						}
 						
-						this.showPalettes('', libs, mxUtils.indexOf(tmp, entry.id) >= 0);
+						this.showPalettes('', libs, visible[entry.id]);
 					}
 				}
 			}
-		}
-		
-		if (remember)
-		{
-			mxSettings.setLibraries(stc);
-			mxSettings.save();
 		}
 	};
 

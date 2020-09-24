@@ -230,6 +230,11 @@ App.MODE_BROWSER = 'browser';
 App.MODE_TRELLO = 'trello';
 
 /**
+ * Embed App Mode
+ */
+App.MODE_EMBED = 'embed';
+
+/**
  * Sets the delay for autosave in milliseconds. Default is 2000.
  */
 App.DROPBOX_APPKEY = 'libwls2fa9szdji';
@@ -563,8 +568,9 @@ App.main = function(callback, createUi)
 			{
 				var content = mxUtils.getTextContent(scripts[0]);
 				
-				if (CryptoJS.MD5(content).toString() != '5bf9ec4131db137e247634de78c4ec47')
+				if (CryptoJS.MD5(content).toString() != '9544a60fcc10609bee5e70a56ad52599')
 				{
+					console.log('Updated MD5:', CryptoJS.MD5(content).toString());
 					alert('[Dev] Script change requires update of CSP');
 				}
 			}
@@ -576,7 +582,7 @@ App.main = function(callback, createUi)
 			if ('serviceWorker' in navigator && (/.*\.diagrams\.net$/.test(window.location.hostname) ||
 				/.*\.draw\.io$/.test(window.location.hostname) || urlParams['offline'] == '1'))
 			{
-				// Removes PWA cache on www.draw.io to force use of new domain
+				// Removes PWA cache on www.draw.io to force use of new domain via redirect
 				if (urlParams['offline'] == '0' || /www\.draw\.io$/.test(window.location.hostname) ||
 					(urlParams['offline'] != '1' && urlParams['dev'] == '1'))
 				{
@@ -613,7 +619,7 @@ App.main = function(callback, createUi)
 		
 		// Loads Pusher API
 		if (('ArrayBuffer' in window) && !mxClient.IS_CHROMEAPP && !EditorUi.isElectronApp &&
-			DrawioFile.SYNC == 'auto' && urlParams['embed'] != '1' && urlParams['local'] != '1' &&
+			DrawioFile.SYNC == 'auto' && (urlParams['embed'] != '1' || urlParams['embedRT'] == '1') && urlParams['local'] != '1' &&
 			(urlParams['chrome'] != '0' || urlParams['rt'] == '1') &&
 			urlParams['stealth'] != '1' && urlParams['offline'] != '1')
 		{
@@ -3296,7 +3302,7 @@ App.prototype.showSplash = function(force)
 				if (cancel && !mxClient.IS_CHROMEAPP)
 				{
 					var prev = Editor.useLocalStorage;
-					this.createFile(this.defaultFilename, null, null, null, null, null, null,
+					this.createFile(this.defaultFilename + (EditorUi.isElectronApp? '.drawio' : ''), null, null, null, null, null, null,
 						urlParams['local'] != '1');
 					Editor.useLocalStorage = prev;
 				}
@@ -4696,6 +4702,32 @@ App.prototype.loadFile = function(id, sameWindow, file, success, force)
 				if (success != null)
 				{
 					success();
+				}
+			}
+			else if (id.charAt(0) == 'E') // Embed file
+			{
+				//Currently we only reload current file. Id is not used!
+				var currentFile = this.getCurrentFile();
+				
+				if (currentFile == null)
+				{
+					this.handleError({message: mxResources.get('serviceUnavailableOrBlocked')}, mxResources.get('errorLoadingFile'));
+				}
+				else
+				{
+					this.remoteInvoke('getDraftFileContent', null, null, mxUtils.bind(this, function(data, desc)
+					{
+						this.spinner.stop();
+						this.fileLoaded(new EmbedFile(this, data, desc));
+						
+						if (success != null)
+						{
+							success();
+						}
+					}), mxUtils.bind(this, function()
+					{
+						this.handleError({message: mxResources.get('serviceUnavailableOrBlocked')}, mxResources.get('errorLoadingFile'));
+					}));
 				}
 			}
 			else if (id.charAt(0) == 'U')
