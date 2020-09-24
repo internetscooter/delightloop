@@ -6,15 +6,11 @@ if (workbox)
 	workbox.precaching.precacheAndRoute([
   {
     "url": "js/app.min.js",
-    "revision": "d9a852dc775fc55cbd2b46bae20414cd"
+    "revision": "ed5326d7c9733e1c1530bf7a685239c9"
   },
   {
     "url": "js/extensions.min.js",
-    "revision": "86201a81db0f64044e2aa1b96008fb6a"
-  },
-  {
-    "url": "js/stencils.min.js",
-    "revision": "a6620368de26b57e1a60f45f470a9e87"
+    "revision": "dec4ff0126fb9fcca53cddac9b70c1df"
   },
   {
     "url": "js/shapes.min.js",
@@ -26,7 +22,7 @@ if (workbox)
   },
   {
     "url": "index.html",
-    "revision": "9583ae237911326eaba0006e795c4b0b"
+    "revision": "11792102adc802b2687afc6d78554df6"
   },
   {
     "url": "open.html",
@@ -38,7 +34,7 @@ if (workbox)
   },
   {
     "url": "styles/atlas.css",
-    "revision": "40f54334c7a62821dbf1f7c7d8ad62cc"
+    "revision": "07ff03bf40985d2740d142012b24c7d1"
   },
   {
     "url": "styles/dark.css",
