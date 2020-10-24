@@ -1,3 +1,35 @@
+20-OCT-2020: 13.8.1
+
+- Lucidchart import improvements
+- Gliffy import improvements
+- Uses mxGraph 4.2.1 beta 21
+
+14-OCT-2020: 13.8.0
+
+- App Engine configuration changes
+- Uses mxGraph 4.2.1 beta 20
+
+08-OCT-2020: 13.7.9
+
+- Fixes script load order for electron
+
+07-OCT-2020: 13.7.8
+
+- Uses mxGraph 4.2.1 beta 19
+- Uses MathJax 2.7.9
+
+30-SEP-2020: 13.7.7
+
+- Updates Finnish translations, credit Arttu Ylhävuori, github.com/areee
+- Updates native File API tokens
+- Lucidchart import improvements
+- Fixes gradient issues in FF
+- Uses mxGraph 4.2.1 beta 18
+
+28-SEP-2020: 13.7.6
+
+- Updates Azure icons
+
 23-SEP-2020: 13.7.5
 
 - Removes document.write for modern browsers
