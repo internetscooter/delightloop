@@ -1550,10 +1550,13 @@
 		if (forceSvg || (!forceXml && file != null && /(\.svg)$/i.test(file.getTitle())))
 		{
 			uncompressed = false;
+			var darkTheme = graph.themes != null && graph.defaultThemeName == 'darkTheme';
 			
 			// Exports SVG for first page while other page is visible by creating a graph
 			// LATER: Add caching for the graph or SVG while not on first page
-			if (this.pages != null && this.currentPage != this.pages[0])
+			// Dark mode requires a refresh that would destroy all handlers
+			// LATER: Use dark theme here to bypass refresh
+			if (darkTheme || (this.pages != null && this.currentPage != this.pages[0]))
 			{
 				var graphGetGlobalVariable = graph.getGlobalVariable;
 				graph = this.createTemporaryGraph(graph.getStylesheet());
@@ -2062,7 +2065,12 @@
 				steps: graph.view.gridSteps,
 				color: graph.view.gridColor
 			};
-		}		
+		}
+		
+		if (Graph.translateDiagram)
+		{
+			extras.diagramLanguage = Graph.diagramLanguage;
+		}
 		
 		return new mxXmlRequest(EXPORT_URL, 'format=' + format + range + allPages +
 			'&bg=' + ((bg != null) ? bg : mxConstants.NONE) +
@@ -2188,15 +2196,9 @@
 		
 		if (desc.url != null && desc.url.length > 0)
 		{
-            var realUrl = desc.url;
-            
-            if ((/^https?:\/\//.test(realUrl)) && !this.editor.isCorsEnabledForUrl(realUrl))
-            {
-                realUrl = PROXY_URL + '?url=' + encodeURIComponent(realUrl);
-            }
-
+			// Cannot use proxy here as it will block unknown text content
             // LATER: Remove cache-control header
-            this.editor.loadUrl(realUrl, mxUtils.bind(this, function(data)
+            this.editor.loadUrl(desc.url, mxUtils.bind(this, function(data)
             {
             	loadData(data);
             }), mxUtils.bind(this, function(err)
@@ -3782,8 +3784,9 @@
 			{
 				if (!disableLogging)
 				{
-					EditorUi.logError('Caught: ' + ((resp.message != null) ?
-						resp.message : 'null'), null, null, null, resp, 'INFO');
+					EditorUi.logError('Caught: ' +
+						(resp.message == '' && resp.name != null) ? resp.name : resp.message,
+						resp.filename, resp.lineNumber, resp.columnNumber, resp, 'INFO');
 				}
 				else
 				{
@@ -3839,7 +3842,7 @@
 							', ' + this.drive.user.email+ ')' : ''));
 					}
 					
-					var id = (fileHash != null) ? fileHash : window.location.hash;
+					var id = (notFoundMessage != null) ? null : ((fileHash != null) ? fileHash : window.location.hash);
 					
 					// #U handles case where we tried to fallback to Google File and
 					// hash property still shows the public URL we tried to load
@@ -3947,7 +3950,14 @@
 				
 				if (e.message != null)
 				{
-					msg = mxUtils.htmlEntities(e.message);
+					if (e.message == '' && e.name != null)
+					{
+						msg = mxUtils.htmlEntities(e.name);
+					}
+					else
+					{
+						msg = mxUtils.htmlEntities(e.message);
+					}
 				}
 				else if (e.response != null && e.response.error != null)
 				{
@@ -4194,25 +4204,27 @@
 	 */
 	EditorUi.prototype.createImageDataUri = function(canvas, xml, format, dpi)
 	{
-   	    var data = canvas.toDataURL('image/' + format);
-   	    
-   	    // Checks if output is invalid or empty
-   	    if (data.length <= 6 || data == canvas.cloneNode(false).toDataURL('image/' + format))
-   	    {
-   	    	throw {message: 'Invalid image'};
-   	    }
-   	    
-   	    if (xml != null)
-   	    {
-   	    	data = Editor.writeGraphModelToPng(data, 'tEXt', 'mxfile', encodeURIComponent(xml));
-   	    }
-   	    
-   	    if (dpi > 0)
-    	{
-   	    	data = Editor.writeGraphModelToPng(data, 'pHYs', 'dpi', dpi);
-    	}
-   	    
-   	    return data;
+		var data = canvas.toDataURL('image/' + format);
+		
+		// Checks for valid output
+		if (data != null && data.length > 6)
+		{
+			if (xml != null)
+			{
+				data = Editor.writeGraphModelToPng(data, 'tEXt', 'mxfile', encodeURIComponent(xml));
+			}
+			
+			if (dpi > 0)
+			{
+				data = Editor.writeGraphModelToPng(data, 'pHYs', 'dpi', dpi);
+			}
+		}
+		else
+		{
+			throw {message: mxResources.get('unknownError')};
+		}
+		
+		return data;
 	};
 	
 	/**
@@ -5188,7 +5200,7 @@
 	/**
 	 * 
 	 */
-	EditorUi.prototype.createLink = function(linkTarget, linkColor, allPages, lightbox, editLink, layers, url, ignoreFile, params)
+	EditorUi.prototype.createLink = function(linkTarget, linkColor, allPages, lightbox, editLink, layers, url, ignoreFile, params, useOpenParameter)
 	{
 		params = (params != null) ? params : this.createUrlParameters(linkTarget, linkColor, allPages, lightbox, editLink, layers);
 		var file = this.getCurrentFile();
@@ -5220,6 +5232,12 @@
 		if (addTitle && file != null && file.getTitle() != null && file.getTitle() != this.defaultFilename)
 		{
 			params.push('title=' + encodeURIComponent(file.getTitle()));
+		}
+
+		if (useOpenParameter && data.length > 1)
+		{
+			params.push('open=' + data.substring(1));
+			data = '';
 		}
 		
 		return ((lightbox && urlParams['dev'] != '1') ? EditorUi.lightboxHost :
@@ -5447,7 +5465,7 @@
 	/**
 	 * 
 	 */
-	EditorUi.prototype.showPublishLinkDialog = function(title, hideShare, width, height, fn, showFrameOption, showSelectionOption)
+	EditorUi.prototype.showPublishLinkDialog = function(title, hideShare, width, height, fn, showFrameOption)
 	{
 		var div = document.createElement('div');
 		div.style.whiteSpace = 'nowrap';
@@ -5795,11 +5813,11 @@
 		
 		var include = this.addCheckbox(div, mxResources.get('includeCopyOfMyDiagram'), defaultInclude, null, null, format != 'jpeg');
 		var hasPages = this.pages != null && this.pages.length > 1;
-		var allPages = this.addCheckbox(div, (hasPages) ? mxResources.get('allPages') : '', hasPages, !hasPages, null, format != 'jpeg');
+		var allPages = this.addCheckbox(div, (hasPages && format != 'svg') ? mxResources.get('allPages') : '', hasPages, !hasPages, null, format != 'jpeg');
 		allPages.style.marginLeft = '24px';
 		allPages.style.marginBottom = '16px';
 		
-		if (!hasPages)
+		if (!hasPages || format == 'svg')
 		{
 			allPages.style.display = 'none';
 		}
@@ -5950,6 +5968,7 @@
 	EditorUi.prototype.createEmbedImage = function(fit, shadow, retina, lightbox, edit, layers, fn, err)
 	{
 		var bounds = this.editor.graph.getGraphBounds();
+		var page = this.getSelectedPageIndex();
 		
 		function doUpdate(dataUri)
 		{
@@ -5962,6 +5981,7 @@
 				// KNOWN: Message passing does not seem to work in IE11
 				onclick = " onclick=\"(function(img){if(img.wnd!=null&&!img.wnd.closed){img.wnd.focus();}else{var r=function(evt){if(evt.data=='ready'&&evt.source==img.wnd){img.wnd.postMessage(decodeURIComponent(" +
 					"img.getAttribute('src')),'*');window.removeEventListener('message',r);}};window.addEventListener('message',r);img.wnd=window.open('" + EditorUi.lightboxHost + "/?client=1" +
+					((page != null) ? ("&page=" + page) : "") +
 					((edit) ? "&edit=_blank" : "") +
 					((layers) ? '&layers=1' : '') + "');}})(this);\"";
 				css += 'cursor:pointer;';
@@ -6106,6 +6126,8 @@
 			// Adds double click handling
 			if (lightbox)
 			{
+				var page = this.getSelectedPageIndex();
+				
 				// KNOWN: Message passing does not seem to work in IE11
 				var js = "(function(svg){var src=window.event.target||window.event.srcElement;" +
 					// Ignores link events
@@ -6118,6 +6140,7 @@
 					"window.addEventListener('message',r);" +
 					// Opens lightbox window
 					"svg.wnd=window.open('" + EditorUi.lightboxHost + "/?client=1" +
+					((page != null) ? ("&page=" + page) : "") +
 					((edit) ? "&edit=_blank" : "") + ((layers) ? '&layers=1' : '') + "');}}})(this);";
 				svgRoot.setAttribute('onclick', js);
 				css += 'cursor:pointer;';
@@ -6532,15 +6555,7 @@
 			   		}
 			   		catch (e)
 			   		{
-			   			// Fallback to server-side image export
-			   			if (e.message == 'Invalid image')
-			   			{
-			   				this.downloadFile(format);
-			   			}
-			   			else
-			   			{
-				   			this.handleError(e);
-			   			}
+			   			this.handleError(e);
 			   		}
 			   	}), null, this.thumbImageCache, null, mxUtils.bind(this, function(e)
 			   	{
@@ -7694,7 +7709,22 @@
 		{
 			window.openNew = false;
 			window.openKey = 'import';
+							
+			window.listBrowserFiles = mxUtils.bind(this, function(success, error) 
+			{
+				StorageFile.listFiles(this, 'F', success, error);
+			});
 			
+			window.openBrowserFile = mxUtils.bind(this, function(title, success, error)
+			{
+				StorageFile.getFileContent(this, title, success, error);
+			});
+			
+			window.deleteBrowserFile = mxUtils.bind(this, function(title, success, error)
+			{
+				StorageFile.deleteFile(this, title, success, error);
+			});
+
 			if (!noSplash)
 			{
 				var prevValue = Editor.useLocalStorage;
@@ -7726,7 +7756,8 @@
 			}));
 
 			// Removes openFile if dialog is closed
-			this.showDialog(new OpenDialog(this).container, 360, 220, true, true, function()
+			this.showDialog(new OpenDialog(this).container,  (Editor.useLocalStorage) ? 640 : 360,
+				(Editor.useLocalStorage) ? 480 : 220, true, true, function()
 			{
 				window.openFile = null;
 			});
@@ -7750,8 +7781,10 @@
 			}
 		}
 	};
-	
-	
+
+	/**
+	 * Imports the given zip file.
+	 */
 	EditorUi.prototype.importZipFile = function(file, success, onerror)
 	{
 		var ui = this;
@@ -8308,7 +8341,7 @@
 										    					// Refuses to insert images above a certain size as they kill the app
 										    					if (data2 != null && data2.length < maxBytes)
 										    					{
-											    					var s = (!resizeImages || !this.isResampleImage(e.target.result, resampleThreshold)) ? 1 : Math.min(1, Math.min(maxSize / w2, maxSize / h2));
+											    					var s = (!resizeImages || !this.isResampleImageSize(file.size, resampleThreshold)) ? 1 : Math.min(1, Math.min(maxSize / w2, maxSize / h2));
 												    				
 											    					return fn(data2, file.type, x + index * gs, y + index * gs, Math.round(w2 * s), Math.round(h2 * s), file.name);
 										    					}
@@ -8319,7 +8352,7 @@
 										    						return null;
 										    					}
 												    		}));
-									    				}), resizeImages, maxSize, resampleThreshold);
+									    				}), resizeImages, maxSize, resampleThreshold, file.size);
 									    			}), mxUtils.bind(this, function()
 									    			{
 									    				this.handleError({message: mxResources.get('invalidOrMissingFile')});
@@ -8472,23 +8505,23 @@
 	/**
 	 * 
 	 */
-	EditorUi.prototype.isResampleImage = function(data, thresh)
+	EditorUi.prototype.isResampleImageSize = function(size, thresh)
 	{
 		thresh = (thresh != null) ? thresh : this.resampleThreshold;
 
-		return data.length > thresh;
+		return size > thresh;
 	};
 	
 	/**
 	 * Resizes the given image if <maxImageBytes> is not null.
 	 */
-	EditorUi.prototype.resizeImage = function(img, data, fn, enabled, maxSize, thresh)
+	EditorUi.prototype.resizeImage = function(img, data, fn, enabled, maxSize, thresh, fileSize)
 	{
 		maxSize = (maxSize != null) ? maxSize : this.maxImageSize;
 		var w = Math.max(1, img.width);
 		var h = Math.max(1, img.height);
 		
-		if (enabled && this.isResampleImage(data, thresh))
+		if (enabled && this.isResampleImageSize((fileSize != null) ? fileSize : data.length, thresh))
 		{
 			try
 			{
@@ -8794,29 +8827,13 @@
 			this.editor.editBlankUrl = 'https://app.diagrams.net/';
 		}
 		
-		// Passes current page to editor window
+		// Passes dev mode to new window
 		var editorGetEditBlankUrl = ui.editor.getEditBlankUrl;
 		
 		this.editor.getEditBlankUrl = function(params)
 		{
 			params = (params != null) ? params : '';
-			
-			if (ui.pages != null && ui.currentPage != null)
-			{
-				for (var i = 0; i < ui.pages.length; i++)
-				{
-					if (ui.pages[i] == ui.currentPage)
-					{
-						if (i > 0)
-						{
-							params += ((params.length > 0) ? '&' : '?') + 'page=' + i;
-						}
-						
-						break;
-					}
-				}
-			}
-			
+
 			if (urlParams['dev'] == '1')
 			{
 				params += ((params.length > 0) ? '&' : '?') + 'dev=1';
@@ -9251,14 +9268,21 @@
 					
 				    if (evt.dataTransfer.files.length > 0)
 				    {
-						if (mxEvent.isAltDown(evt))
-						{
-							x = null;
-							y = null;
-						}
-						
-						this.importFiles(evt.dataTransfer.files, x, y, this.maxImageSize, null, null, null, null,
-							mxEvent.isControlDown(evt), null, null, mxEvent.isShiftDown(evt));
+				    	if (mxEvent.isControlDown(evt) || (mxClient.IS_MAC && mxEvent.isMetaDown(evt)))
+				    	{
+				    		this.openFiles(evt.dataTransfer.files, true);
+				    	}
+				    	else
+				    	{
+							if (mxEvent.isAltDown(evt))
+							{
+								x = null;
+								y = null;
+							}
+							
+							this.importFiles(evt.dataTransfer.files, x, y, this.maxImageSize, null, null, null, null,
+								mxEvent.isControlDown(evt), null, null, mxEvent.isShiftDown(evt));
+				    	}
 		    		}
 				    else
 				    {
@@ -10543,6 +10567,8 @@
 					
 					if (xml != null)
 					{
+						fileHandle = null;
+						temp = true;
 						data = xml;
 					}
 	    		}
@@ -10623,18 +10649,19 @@
 			}
 			else
 			{
-				this.fileLoaded(new LocalFile(this, data, name || this.defaultFilename, temp, fileHandle, desc));
+				this.fileLoaded(new LocalFile(this, data, name ||
+					this.defaultFilename, temp, fileHandle, desc));
 			}
 		});
 
 		if (data != null && data.length > 0)
 		{
 			if (currentFile == null || (!currentFile.isModified() &&
-				(mxClient.IS_CHROMEAPP || EditorUi.isElectronApp)))
+				(mxClient.IS_CHROMEAPP || EditorUi.isElectronApp || fileHandle != null)))
 			{
 				fn();
 			}
-			else if ((mxClient.IS_CHROMEAPP || EditorUi.isElectronApp) &&
+			else if ((mxClient.IS_CHROMEAPP || EditorUi.isElectronApp || fileHandle != null) &&
 				currentFile != null && currentFile.isModified())
 			{
 				this.confirm(mxResources.get('allChangesLost'), null, fn,
@@ -11083,8 +11110,8 @@
 						var enableSearchDocs = data.enableSearch == 1;
 						var enableCustomTemp = data.enableCustomTemp == 1;
 						
-						var dlg = new NewDialog(this, false, data.callback != null,
-							mxUtils.bind(this, function(xml, name)
+						var dlg = new NewDialog(this, false, data.templatesOnly? false : data.callback != null,
+							mxUtils.bind(this, function(xml, name, url, libs)
 						{
 							xml = xml || this.emptyDiagramXml;
 							
@@ -11093,6 +11120,7 @@
 							{
 								parent.postMessage(JSON.stringify({event: 'template', xml: xml,
 									blank: xml == this.emptyDiagramXml, name: name,
+									tempUrl: url, libs: libs, builtIn: true,
 									message: data}), '*');
 							}
 							else
@@ -11474,14 +11502,27 @@
 							this.embedFilenameSpan = tmp;
 						}
 						
+						try
+						{
+							if (data.libs)
+							{
+								this.sidebar.showEntries(data.libs);
+							}
+						}
+						catch(e){}
+
 						if (data.xmlpng != null)
 						{
 							data = this.extractGraphModelFromPng(data.xmlpng);
 						}
+						else if (data.descriptor != null)
+						{
+							data = data.descriptor;
+						}
 						else
 						{
 							data = data.xml;
-						}
+						}						
 					}
 					else if (data.action == 'merge')
 					{
@@ -11534,6 +11575,12 @@
 					this.handleError(e);
 				}
 			}
+						
+			var getData = mxUtils.bind(this, function()
+			{
+				return (urlParams['pages'] != '0' || (this.pages != null && this.pages.length > 1)) ?
+					this.getFileData(true): mxUtils.getXml(this.editor.getGraphXml());
+			});;
 			
 			var doLoad = mxUtils.bind(this, function(data, evt)
 			{
@@ -11552,13 +11599,7 @@
 				{
 					this.editor.setStatus('');
 				}
-				
-				var getData = mxUtils.bind(this, function()
-				{
-					return (urlParams['pages'] != '0' || (this.pages != null && this.pages.length > 1)) ?
-						this.getFileData(true): mxUtils.getXml(this.editor.getGraphXml());
-				});;
-				
+
 				lastData = getData();
 
 				if (autosave && changeListener == null)
@@ -11639,6 +11680,16 @@
 				}), mxUtils.bind(this, function(e)
 				{
 					this.handleError(e);
+				}));
+			}
+			else if (data != null && typeof data === 'object' && data.format != null && (data.data != null || data.url != null))
+			{
+				this.loadDescriptor(data, mxUtils.bind(this, function(e)
+				{
+					doLoad(getData(), evt);
+				}), mxUtils.bind(this, function(e)
+				{
+					this.handleError(e, mxResources.get('errorLoadingFile'));
 				}));
 			}
 			else
@@ -12325,6 +12376,7 @@
 					{
 						var edgeLayout = new mxParallelEdgeLayout(graph);
 						edgeLayout.spacing = edgespacing;
+						edgeLayout.checkOverlap = true;
 				
 						var postProcess = function()
 						{
@@ -12367,6 +12419,7 @@
 						else if (layout == 'circle')
 						{
 							var circleLayout = new mxCircleLayout(graph);
+							circleLayout.disableEdgeStyle = false;
 		    				circleLayout.resetEdges = false;
 		    				
 		    				var circleLayoutIsVertexIgnored = circleLayout.isVertexIgnored;
@@ -12435,6 +12488,7 @@
 			    			
 		    				var organicLayout = new mxFastOrganicLayout(graph);
 		    				organicLayout.forceConstant = nodespacing * 3;
+		    				organicLayout.disableEdgeStyle = false;
 		    				organicLayout.resetEdges = false;
 		
 		    				var organicLayoutIsVertexIgnored = organicLayout.isVertexIgnored;
@@ -12446,9 +12500,6 @@
 		    						mxUtils.indexOf(cells, vertex) < 0;
 		    				};
 		
-		    				var edgeLayout = new mxParallelEdgeLayout(graph);
-		    				edgeLayout.spacing = edgespacing;
-		    				
 		    	    		this.executeLayout(function()
 		    	    		{
 		    	    			organicLayout.execute(graph.getDefaultParent());

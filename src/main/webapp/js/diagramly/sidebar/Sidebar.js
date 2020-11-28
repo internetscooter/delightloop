@@ -75,7 +75,7 @@
 							  'Media Services', 'Migration', 'Mobile Services', 'Network Content Delivery', 'Security Identity Compliance', 'Storage'];
 	
 	Sidebar.prototype.aws4 = ['Arrows', 'General Resources', 'Illustrations', 'Groups', 'Analytics', 'Application Integration', 'AR VR', 'Cost Management', 'Blockchain', 
-							  'Business Applications', 'EC2 Instance Types', 'Compute', 'Customer Enablement', 'Customer Engagement',
+							  'Business Applications', 'EC2 Instance Types', 'Compute', 'Containers', 'Customer Enablement', 'Customer Engagement',
 							  'Database', 'End User Computing', 'Developer Tools', 'Game Tech', 'Internet of Things', 'IoT Things', 'IoT Resources', 'Machine Learning', 'Management Governance',
 							  'Media Services', 'Migration Transfer', 'Mobile', 'Network Content Delivery', 'Quantum Technologies', 'Robotics', 'Satellite', 'Security Identity Compliance', 'Storage'];
 
@@ -89,7 +89,7 @@
 	Sidebar.prototype.electrical = ['LogicGates', 'Resistors', 'Capacitors', 'Inductors', 'SwitchesRelays', 'Diodes', 'Sources', 'Transistors', 'Misc', 'Audio', 'PlcLadder', 'Abstract', 'Optical', 'VacuumTubes', 'Waveforms', 'Instruments', 'RotMech', 'Transmission'];
 
 	/**
-	 * Description of custom libraries, see https://desk.draw.io/a/solutions/articles/16000058316
+	 * Description of custom libraries, see https://www.diagrams.net/doc/faq/configure-diagram-editor
 	 */
 	Sidebar.prototype.customEntries = null;
 	
@@ -97,7 +97,7 @@
 	 * Array of strings for the built-in libraries to be enabled in the more shapes dialog. Null means all,
 	 * empty array means none, possible keys are listed for the libs parameter at
 	 * 
-	 * https://desk.draw.io/support/solutions/articles/16000042546
+	 * https://www.diagrams.net/doc/faq/supported-url-parameters
 	 */
 	Sidebar.prototype.enabledLibraries = null;
 	
@@ -110,6 +110,7 @@
 	 *
 	 */
 	Sidebar.prototype.configuration = [{id: 'general', libs: ['general', 'misc', 'advanced']}, {id: 'uml'}, {id: 'search'}, {id: 'er'},
+									   {id: 'azure2', prefix: 'azure2', libs: ['AI Machine Learning', 'Analytics', 'App Services', 'Azure Stack', 'Azure VMware Solution', 'Blockchain', 'Compute', 'Containers', 'CXP', 'Databases', 'DevOps', 'General', 'Identity', 'Integration', 'Internet of Things', 'Intune', 'IoT', 'Management Governance', 'Migrate', 'Mixed Reality', 'Monitor', 'Networking', 'Other', 'Preview', 'Security', 'Storage', 'Web']},
 	                                   {id: 'ios', prefix: 'ios', libs: [''/*prefix is library*/, '7icons', '7ui']}, 
 	                                   {id: 'android', prefix: 'android', libs: [''/*prefix is library*/]}, {id: 'aws3d'},
 	                                   {id: 'flowchart'}, {id: 'basic'}, {id: 'infographic'}, {id: 'arrows'}, {id: 'arrows2'}, {id: 'lean_mapping'}, {id: 'citrix'}, {id: 'azure'}, {id: 'network'}, {id: 'vvd'}, 
@@ -477,14 +478,13 @@
 							      {title: 'AWS19', id: 'aws4', image: IMAGE_PATH + '/sidebar-aws4.png'},
 			            			// TODO: Add isometric containers  		                          
             			          {title: mxResources.get('aws3d'), id: 'aws3d', image: IMAGE_PATH + '/sidebar-aws3d.png'},
-            			          {title: mxResources.get('azure'), id: 'azure', image: IMAGE_PATH + '/sidebar-azure.png'},
+            			          {title: mxResources.get('azure'), id: 'azure2', image: IMAGE_PATH + '/sidebar-azure.png'},
             			          {title: 'Cloud & Enterprise', id: 'mscae', image: IMAGE_PATH + '/sidebar-mscae.png'},
             			          {title: mxResources.get('cisco'), id: 'cisco', image: IMAGE_PATH + '/sidebar-cisco.png'},
             			          {title: 'Cisco19', id: 'cisco19', image: IMAGE_PATH + '/sidebar-cisco19.png'},
             			          {title: 'Cisco Safe', id: 'cisco_safe', image: IMAGE_PATH + '/sidebar-cisco_safe.png'},
             			          {title: 'Cumulus', id: 'cumulus', image: IMAGE_PATH + '/sidebar-cumulus.png'},
             			          {title: 'Citrix', id: 'citrix', image: IMAGE_PATH + '/sidebar-citrix.png'},
-//            			          {title: 'Google Cloud Platform', id: 'gcp2', image: IMAGE_PATH + '/sidebar-gcp2.png'},
             			          {title: 'Google Cloud Platform', id: 'gcp2', image: IMAGE_PATH + '/sidebar-gcp2.png'},
             			          {title: 'IBM', id: 'ibm', image: IMAGE_PATH + '/sidebar-ibm.png'},
             			          {title: 'Kubernetes', id: 'kubernetes', image: IMAGE_PATH + '/sidebar-kubernetes.png'},
@@ -1159,6 +1159,7 @@
 		this.addAWS4Palette();
 		this.addAWS3DPalette();
 		this.addAzurePalette();
+		this.addAzure2Palette();
 		this.addMSCAEPalette();
 		this.addC4Palette();
 		this.addCiscoPalette(cisco, dir);

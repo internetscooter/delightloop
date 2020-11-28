@@ -78,6 +78,14 @@
 			img.src = IMAGE_PATH + '/help.png';
 		}
 		
+		if (urlParams['noFileMenu'] == '1')
+		{
+			this.defaultMenuItems = this.defaultMenuItems.filter(function(m)
+			{
+				return m != 'file';
+			});
+		}
+
 		editorUi.actions.addAction('new...', function()
 		{
 			var compact = editorUi.isOffline();
@@ -572,7 +580,7 @@
 					if (!isNaN(val) && val > 0)
 					{
 					   	editorUi.exportSvg(val / 100, transparentBackground, ignoreSelection, addShadow,
-					   		editable, embedImages, border, !cropImage, currentPage, linkTarget, keepTheme);
+					   		editable, embedImages, border, !cropImage, false, linkTarget, keepTheme);
 					}
 				}), true, null, 'svg');
 		}));
@@ -654,7 +662,14 @@
 		
 		editorUi.actions.addAction('support...', function()
 		{
-			editorUi.openLink('https://github.com/jgraph/drawio/wiki/Getting-Support');
+			if (EditorUi.isElectronApp)
+			{
+				editorUi.openLink('https://github.com/jgraph/drawio-desktop/wiki/Getting-Support');
+			}
+			else
+			{
+				editorUi.openLink('https://github.com/jgraph/drawio/wiki/Getting-Support');
+			}
 		});
 
 		editorUi.actions.addAction('exportOptionsDisabled...', function()
@@ -689,7 +704,14 @@
 		
 		editorUi.actions.addAction('forkme', function()
 		{
-			editorUi.openLink('https://github.com/jgraph/drawio');
+			if (EditorUi.isElectronApp)
+			{
+				editorUi.openLink('https://github.com/jgraph/drawio-desktop');
+			}
+			else
+			{
+				editorUi.openLink('https://github.com/jgraph/drawio');
+			}
 		}).label = 'Fork me on GitHub...';
 		
 		editorUi.actions.addAction('downloadDesktop...', function()
@@ -1000,10 +1022,8 @@
 		layoutMenu.funct = function(menu, parent)
 		{
 			layoutMenuFunct.apply(this, arguments);
-			
-			menu.addSeparator(parent);
-		
-			menu.addItem(mxResources.get('orgChart') + '...', null, function()
+
+			menu.addItem(mxResources.get('orgChart'), null, function()
 			{
 				var branchOptimizer = null, parentChildSpacingVal = 20, siblingSpacingVal = 20, notExecuted = true;
 				
@@ -1151,6 +1171,22 @@
 				
 				editorUi.showDialog(dlg.container, 355, 125, true, true);
 			}, parent, null, isGraphEnabled());
+						
+			menu.addSeparator(parent);
+		
+			menu.addItem(mxResources.get('parallels'), null, mxUtils.bind(this, function()
+			{
+				// Keeps parallel edges apart
+				var layout = new mxParallelEdgeLayout(graph);
+				layout.checkOverlap = true;
+				layout.spacing = 20;
+				
+	    		editorUi.executeLayout(function()
+	    		{
+	    			layout.execute(graph.getDefaultParent(), (!graph.isSelectionEmpty()) ?
+	    				graph.getSelectionCells() : null);
+	    		}, false);
+			}), parent);
 			
 			menu.addSeparator(parent);
 			editorUi.menus.addMenuItem(menu, 'runLayout', parent, null, null, mxResources.get('apply') + '...');
@@ -1180,7 +1216,7 @@
 					
 					if (e.keyCode == 13 && term.length > 0)
 					{
-						this.editorUi.openLink('https://desk.draw.io/support/search/solutions?term=' +
+						this.editorUi.openLink('https://www.google.com/search?q=site%3Adiagrams.net+inurl%3A%2Fdoc%2Ffaq%2F+' +
 							encodeURIComponent(term));
 						input.value = '';
 						EditorUi.logEvent({category: 'SEARCH-HELP', action: 'search', label: term});
@@ -1221,9 +1257,19 @@
 				{
 					input.focus();
 				}, 0);
-				
-				this.addMenuItems(menu, ['-', 'keyboardShortcuts', 'quickStart',
-					'support', '-', 'forkme', 'downloadDesktop', '-', 'about'], parent);
+
+				if (EditorUi.isElectronApp)
+				{
+					console.log('electron help menu');
+					this.addMenuItems(menu, ['-', 'keyboardShortcuts', 'quickStart',
+						'support', '-', 'forkme', '-', 'about'], parent);
+
+				}
+				else
+				{
+					this.addMenuItems(menu, ['-', 'keyboardShortcuts', 'quickStart',
+						'support', '-', 'forkme', 'downloadDesktop', '-', 'about'], parent);
+				}
 			}
 			
 			if (urlParams['test'] == '1')
@@ -1232,6 +1278,19 @@
 				this.addSubmenu('testDevelop', menu, parent);
 			}
 		})));
+
+		// Experimental
+		mxResources.parse('diagramLanguage=Diagram Language');
+		editorUi.actions.addAction('diagramLanguage...', function()
+		{
+			var lang = prompt('Language Code', Graph.diagramLanguage || '');
+			
+			if (lang != null)
+			{
+				Graph.diagramLanguage = (lang.length > 0) ? lang : null;
+				graph.refresh();
+			}
+		});
 		
 		// Only visible in test mode
 		if (urlParams['test'] == '1')
@@ -1536,52 +1595,7 @@
 				mxLog.debug(mxUtils.getXml(root));
 				mxLog.debug('stateCounter', stateCounter);
 			}));
-			
-			editorUi.actions.addAction('testDownloadRtModel...', mxUtils.bind(this, function()
-			{
-				if (editorUi.drive == null)
-				{
-					editorUi.handleError({message: mxResources.get('serviceUnavailableOrBlocked')});
-				}
-				else
-				{
-					editorUi.drive.execute(mxUtils.bind(this, function()
-					{
-						var fileId =prompt('File ID', '');
-						
-						if (fileId != null && fileId.length > 0 &&
-							editorUi.spinner.spin(document.body, mxResources.get('export')))
-						{
-							// LATER: Download full model dump with history
-							var req = new mxXmlRequest('https://www.googleapis.com/drive/v2/files/' +
-									fileId + '/realtime?supportsAllDrives=true', null, 'GET');
-	
-							// Adds auth token
-							req.setRequestHeaders = function(request)
-							{
-								mxXmlRequest.prototype.setRequestHeaders.apply(this, arguments);
-								request.setRequestHeader('authorization', 'Bearer ' + editorUi.drive.token);	
-							};
-							
-							req.send(function(req)
-							{
-								editorUi.spinner.stop();
-								
-								if (req.getStatus() >= 200 && req.getStatus() <= 299)
-								{
-									editorUi.saveLocalFile(req.getText(), 'json-' + fileId +'.txt', 'text/plain');
-								}
-								else
-								{
-									editorUi.handleError({message: mxResources.get('fileNotFound')},
-										mxResources.get('errorLoadingFile'));
-								}
-							});
-						}
-					}));
-				}
-			}));
-	
+
 			editorUi.actions.addAction('testShowConsole', function()
 			{
 				if (!mxLog.isVisible())
@@ -1600,40 +1614,7 @@
 			{
 				this.addMenuItems(menu, ['createSidebarEntry', 'showBoundingBox', '-',
 					'testCheckFile', 'testDiff', '-', 'testInspect', '-',
-					'testXmlImageExport', '-', 'testDownloadRtModel'], parent);
-
-				menu.addItem(mxResources.get('testImportRtModel') + '...', null, function()
-				{
-					var input = document.createElement('input');
-					input.setAttribute('type', 'file');
-					
-					mxEvent.addListener(input, 'change', mxUtils.bind(this, function()
-					{
-						if (input.files != null)
-						{
-							var reader = new FileReader();
-							
-							reader.onload = mxUtils.bind(this, function(e)
-							{
-								try
-								{
-									editorUi.openLocalFile(mxUtils.getXml(editorUi.drive.convertJsonToXml(
-										JSON.parse(e.target.result).data)), input.files[0].name, true);
-								}
-								catch (err)
-								{
-									editorUi.handleError(err, mxResources.get('errorLoadingFile'));
-								}
-							});
-							
-							reader.readAsText(input.files[0]);
-						}
-					}));
-			
-					input.click();
-				}, parent);
-		
-				this.addMenuItems(menu, ['-', 'testShowConsole'], parent);
+					'testXmlImageExport', '-', 'testShowConsole'], parent);
 			})));
 		}
 
@@ -1833,6 +1814,26 @@
 						var dlg = new EmbedDialog(editorUi, '<iframe frameborder="0" style="width:' + width +
 							';height:' + height + ';" src="' + editorUi.createLink(linkTarget, linkColor,
 							allPages, lightbox, editLink, layers, url) + '"></iframe>');
+						editorUi.showDialog(dlg.container, 440, 240, true, true);
+						dlg.init();
+					});
+				}
+			}, true);
+		}));
+
+		editorUi.actions.put('embedNotion', new Action(mxResources.get('notion') + '...', function()
+		{
+			editorUi.showPublishLinkDialog(mxResources.get('notion'), null, null, null,
+				function(linkTarget, linkColor, allPages, lightbox, editLink, layers, width, height)
+			{
+				if (editorUi.spinner.spin(document.body, mxResources.get('loading')))
+				{
+					editorUi.getPublicUrl(editorUi.getCurrentFile(), function(url)
+					{
+						editorUi.spinner.stop();
+						
+						var dlg = new EmbedDialog(editorUi, editorUi.createLink(linkTarget, linkColor,
+							allPages, lightbox, editLink, layers, url, null, null, true));
 						editorUi.showDialog(dlg.container, 440, 240, true, true);
 						dlg.init();
 					});
@@ -2358,37 +2359,51 @@
 			
 			if (file != null)
 			{
-				var filename = (file.getTitle() != null) ? file.getTitle() : this.editorUi.defaultFilename;
-				
-				var dlg = new FilenameDialog(this.editorUi, filename, mxResources.get('rename'), mxUtils.bind(this, function(title)
+				if (file.constructor == LocalFile && file.fileHandle != null)
 				{
-					if (title != null && title.length > 0 && file != null && title != file.getTitle() &&
-						this.editorUi.spinner.spin(document.body, mxResources.get('renaming')))
+					editorUi.showSaveFilePicker(mxUtils.bind(editorUi, function(fileHandle, desc)
 					{
-						// Delete old file, save new file in dropbox if autosize is enabled
-						file.rename(title, mxUtils.bind(this, function(resp)
-						{
-							this.editorUi.spinner.stop();
-						}),
-						mxUtils.bind(this, function(resp)
-						{
-							this.editorUi.handleError(resp, (resp != null) ? mxResources.get('errorRenamingFile') : null);
-						}));
-					}
-				}), (file.constructor == DriveFile || file.constructor == StorageFile) ?
-					mxResources.get('diagramName') : null, function(name)
+						file.invalidFileHandle = null;
+						file.fileHandle = fileHandle;
+						file.title = desc.name;
+						file.desc = desc;
+						editorUi.save(desc.name);
+					}), null, editorUi.createFileSystemOptions(file.getTitle()));
+				}
+				else
 				{
-					if (name != null && name.length > 0)
+					var filename = (file.getTitle() != null) ? file.getTitle() : this.editorUi.defaultFilename;
+					
+					var dlg = new FilenameDialog(this.editorUi, filename, mxResources.get('rename'), mxUtils.bind(this, function(title)
 					{
-						return true;
-					}
-					
-					editorUi.showError(mxResources.get('error'), mxResources.get('invalidName'), mxResources.get('ok'));
-					
-					return false;
-				}, null, null, null, null, editorUi.editor.fileExtensions);
-				this.editorUi.showDialog(dlg.container, 340, 90, true, true);
-				dlg.init();
+						if (title != null && title.length > 0 && file != null && title != file.getTitle() &&
+							this.editorUi.spinner.spin(document.body, mxResources.get('renaming')))
+						{
+							// Delete old file, save new file in dropbox if autosize is enabled
+							file.rename(title, mxUtils.bind(this, function(resp)
+							{
+								this.editorUi.spinner.stop();
+							}),
+							mxUtils.bind(this, function(resp)
+							{
+								this.editorUi.handleError(resp, (resp != null) ? mxResources.get('errorRenamingFile') : null);
+							}));
+						}
+					}), (file.constructor == DriveFile || file.constructor == StorageFile) ?
+						mxResources.get('diagramName') : null, function(name)
+					{
+						if (name != null && name.length > 0)
+						{
+							return true;
+						}
+						
+						editorUi.showError(mxResources.get('error'), mxResources.get('invalidName'), mxResources.get('ok'));
+						
+						return false;
+					}, null, null, null, null, editorUi.editor.fileExtensions);
+					this.editorUi.showDialog(dlg.container, 340, 90, true, true);
+					dlg.init();
+				}
 			}
 		}));
 		
@@ -2561,7 +2576,7 @@
 
 			if (urlParams['embed'] != '1' && !editorUi.isOffline())
 			{
-				this.addMenuItems(menu, ['-', 'googleDocs', 'googleSlides', 'googleSheets', '-', 'microsoftOffice'], parent);
+				this.addMenuItems(menu, ['-', 'googleDocs', 'googleSlides', 'googleSheets', '-', 'microsoftOffice', '-', 'embedNotion'], parent);
 			}
 		})));
 
@@ -3285,7 +3300,14 @@
 				this.addMenuItem(menu, 'plugins', parent);
 			}
 
-			this.addMenuItems(menu, ['tags', '-', 'editDiagram', '-', 'configuration'], parent);
+			this.addMenuItems(menu, ['tags', '-', 'editDiagram'], parent);
+	
+			if (Graph.translateDiagram)
+			{
+				this.addMenuItems(menu, ['diagramLanguage']);
+			}
+			
+			this.addMenuItems(menu, ['-', 'configuration'], parent);
 			
 			// Adds trailing separator in case new plugin entries are added
 			menu.addSeparator(parent);

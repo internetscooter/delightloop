@@ -689,7 +689,7 @@ DrawioFile.prototype.ignorePatches = function(patches)
 /**
  * Applies the given patches to the file.
  */
-DrawioFile.prototype.patch = function(patches, resolver)
+DrawioFile.prototype.patch = function(patches, resolver, undoable)
 {
 	// Saves state of undo history
 	var undoMgr = this.ui.editor.undoManager;
@@ -702,7 +702,7 @@ DrawioFile.prototype.patch = function(patches, resolver)
 
 	// Ignores change events
 	var prev = this.changeListenerEnabled;
-	this.changeListenerEnabled = false;
+	this.changeListenerEnabled = undoable;
 	
 	// Folding and math change require special handling
 	var fold = graph.foldingEnabled;
@@ -755,9 +755,12 @@ DrawioFile.prototype.patch = function(patches, resolver)
 		this.changeListenerEnabled = prev;
 	
 		// Restores history state
-		undoMgr.history = history;
-		undoMgr.indexOfNextAdd = nextAdd;
-		undoMgr.fireEvent(new mxEventObject(mxEvent.CLEAR));
+		if (!undoable)
+		{
+			undoMgr.history = history;
+			undoMgr.indexOfNextAdd = nextAdd;
+			undoMgr.fireEvent(new mxEventObject(mxEvent.CLEAR));
+		}
 		
 		if (this.ui.currentPage == null || this.ui.currentPage.needsUpdate)
 		{
@@ -1584,7 +1587,7 @@ DrawioFile.prototype.addConflictStatus = function(fn, message)
 DrawioFile.prototype.setConflictStatus = function(message)
 {
 	this.ui.editor.setStatus('<div title="'+ message + '" class="geStatusAlert geBlink" style="cursor:pointer;overflow:hidden;">' +
-		message + ' <a href="https://desk.draw.io/support/solutions/articles/16000087947" target="_blank"><img border="0" ' +
+		message + ' <a href="https://www.diagrams.net/doc/faq/synchronize" target="_blank"><img border="0" ' +
 		'style="margin-left:2px;cursor:help;opacity:0.5;width:16px;height:16px;" valign="bottom" src="' + Editor.helpImage +
 		'" style=""/></a></div>');
 };
