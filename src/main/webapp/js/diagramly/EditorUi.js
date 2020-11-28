@@ -2196,15 +2196,9 @@
 		
 		if (desc.url != null && desc.url.length > 0)
 		{
-            var realUrl = desc.url;
-            
-            if ((/^https?:\/\//.test(realUrl)) && !this.editor.isCorsEnabledForUrl(realUrl))
-            {
-                realUrl = PROXY_URL + '?url=' + encodeURIComponent(realUrl);
-            }
-
+			// Cannot use proxy here as it will block unknown text content
             // LATER: Remove cache-control header
-            this.editor.loadUrl(realUrl, mxUtils.bind(this, function(data)
+            this.editor.loadUrl(desc.url, mxUtils.bind(this, function(data)
             {
             	loadData(data);
             }), mxUtils.bind(this, function(err)
@@ -3848,7 +3842,7 @@
 							', ' + this.drive.user.email+ ')' : ''));
 					}
 					
-					var id = (fileHash != null) ? fileHash : window.location.hash;
+					var id = (notFoundMessage != null) ? null : ((fileHash != null) ? fileHash : window.location.hash);
 					
 					// #U handles case where we tried to fallback to Google File and
 					// hash property still shows the public URL we tried to load
@@ -5206,7 +5200,7 @@
 	/**
 	 * 
 	 */
-	EditorUi.prototype.createLink = function(linkTarget, linkColor, allPages, lightbox, editLink, layers, url, ignoreFile, params)
+	EditorUi.prototype.createLink = function(linkTarget, linkColor, allPages, lightbox, editLink, layers, url, ignoreFile, params, useOpenParameter)
 	{
 		params = (params != null) ? params : this.createUrlParameters(linkTarget, linkColor, allPages, lightbox, editLink, layers);
 		var file = this.getCurrentFile();
@@ -5238,6 +5232,12 @@
 		if (addTitle && file != null && file.getTitle() != null && file.getTitle() != this.defaultFilename)
 		{
 			params.push('title=' + encodeURIComponent(file.getTitle()));
+		}
+
+		if (useOpenParameter && data.length > 1)
+		{
+			params.push('open=' + data.substring(1));
+			data = '';
 		}
 		
 		return ((lightbox && urlParams['dev'] != '1') ? EditorUi.lightboxHost :
@@ -5465,7 +5465,7 @@
 	/**
 	 * 
 	 */
-	EditorUi.prototype.showPublishLinkDialog = function(title, hideShare, width, height, fn, showFrameOption, showSelectionOption)
+	EditorUi.prototype.showPublishLinkDialog = function(title, hideShare, width, height, fn, showFrameOption)
 	{
 		var div = document.createElement('div');
 		div.style.whiteSpace = 'nowrap';
@@ -7709,7 +7709,22 @@
 		{
 			window.openNew = false;
 			window.openKey = 'import';
+							
+			window.listBrowserFiles = mxUtils.bind(this, function(success, error) 
+			{
+				StorageFile.listFiles(this, 'F', success, error);
+			});
 			
+			window.openBrowserFile = mxUtils.bind(this, function(title, success, error)
+			{
+				StorageFile.getFileContent(this, title, success, error);
+			});
+			
+			window.deleteBrowserFile = mxUtils.bind(this, function(title, success, error)
+			{
+				StorageFile.deleteFile(this, title, success, error);
+			});
+
 			if (!noSplash)
 			{
 				var prevValue = Editor.useLocalStorage;
@@ -7741,7 +7756,8 @@
 			}));
 
 			// Removes openFile if dialog is closed
-			this.showDialog(new OpenDialog(this).container, 360, 220, true, true, function()
+			this.showDialog(new OpenDialog(this).container,  (Editor.useLocalStorage) ? 640 : 360,
+				(Editor.useLocalStorage) ? 480 : 220, true, true, function()
 			{
 				window.openFile = null;
 			});
@@ -7765,8 +7781,10 @@
 			}
 		}
 	};
-	
-	
+
+	/**
+	 * Imports the given zip file.
+	 */
 	EditorUi.prototype.importZipFile = function(file, success, onerror)
 	{
 		var ui = this;
@@ -9250,14 +9268,21 @@
 					
 				    if (evt.dataTransfer.files.length > 0)
 				    {
-						if (mxEvent.isAltDown(evt))
-						{
-							x = null;
-							y = null;
-						}
-						
-						this.importFiles(evt.dataTransfer.files, x, y, this.maxImageSize, null, null, null, null,
-							mxEvent.isControlDown(evt), null, null, mxEvent.isShiftDown(evt));
+				    	if (mxEvent.isControlDown(evt) || (mxClient.IS_MAC && mxEvent.isMetaDown(evt)))
+				    	{
+				    		this.openFiles(evt.dataTransfer.files, true);
+				    	}
+				    	else
+				    	{
+							if (mxEvent.isAltDown(evt))
+							{
+								x = null;
+								y = null;
+							}
+							
+							this.importFiles(evt.dataTransfer.files, x, y, this.maxImageSize, null, null, null, null,
+								mxEvent.isControlDown(evt), null, null, mxEvent.isShiftDown(evt));
+				    	}
 		    		}
 				    else
 				    {
@@ -10542,6 +10567,8 @@
 					
 					if (xml != null)
 					{
+						fileHandle = null;
+						temp = true;
 						data = xml;
 					}
 	    		}
@@ -10630,11 +10657,11 @@
 		if (data != null && data.length > 0)
 		{
 			if (currentFile == null || (!currentFile.isModified() &&
-				(mxClient.IS_CHROMEAPP || EditorUi.isElectronApp)))
+				(mxClient.IS_CHROMEAPP || EditorUi.isElectronApp || fileHandle != null)))
 			{
 				fn();
 			}
-			else if ((mxClient.IS_CHROMEAPP || EditorUi.isElectronApp) &&
+			else if ((mxClient.IS_CHROMEAPP || EditorUi.isElectronApp || fileHandle != null) &&
 				currentFile != null && currentFile.isModified())
 			{
 				this.confirm(mxResources.get('allChangesLost'), null, fn,
@@ -11083,8 +11110,8 @@
 						var enableSearchDocs = data.enableSearch == 1;
 						var enableCustomTemp = data.enableCustomTemp == 1;
 						
-						var dlg = new NewDialog(this, false, data.callback != null,
-							mxUtils.bind(this, function(xml, name)
+						var dlg = new NewDialog(this, false, data.templatesOnly? false : data.callback != null,
+							mxUtils.bind(this, function(xml, name, url, libs)
 						{
 							xml = xml || this.emptyDiagramXml;
 							
@@ -11093,6 +11120,7 @@
 							{
 								parent.postMessage(JSON.stringify({event: 'template', xml: xml,
 									blank: xml == this.emptyDiagramXml, name: name,
+									tempUrl: url, libs: libs, builtIn: true,
 									message: data}), '*');
 							}
 							else
@@ -11474,14 +11502,27 @@
 							this.embedFilenameSpan = tmp;
 						}
 						
+						try
+						{
+							if (data.libs)
+							{
+								this.sidebar.showEntries(data.libs);
+							}
+						}
+						catch(e){}
+
 						if (data.xmlpng != null)
 						{
 							data = this.extractGraphModelFromPng(data.xmlpng);
 						}
+						else if (data.descriptor != null)
+						{
+							data = data.descriptor;
+						}
 						else
 						{
 							data = data.xml;
-						}
+						}						
 					}
 					else if (data.action == 'merge')
 					{
@@ -11534,6 +11575,12 @@
 					this.handleError(e);
 				}
 			}
+						
+			var getData = mxUtils.bind(this, function()
+			{
+				return (urlParams['pages'] != '0' || (this.pages != null && this.pages.length > 1)) ?
+					this.getFileData(true): mxUtils.getXml(this.editor.getGraphXml());
+			});;
 			
 			var doLoad = mxUtils.bind(this, function(data, evt)
 			{
@@ -11552,13 +11599,7 @@
 				{
 					this.editor.setStatus('');
 				}
-				
-				var getData = mxUtils.bind(this, function()
-				{
-					return (urlParams['pages'] != '0' || (this.pages != null && this.pages.length > 1)) ?
-						this.getFileData(true): mxUtils.getXml(this.editor.getGraphXml());
-				});;
-				
+
 				lastData = getData();
 
 				if (autosave && changeListener == null)
@@ -11639,6 +11680,16 @@
 				}), mxUtils.bind(this, function(e)
 				{
 					this.handleError(e);
+				}));
+			}
+			else if (data != null && typeof data === 'object' && data.format != null && (data.data != null || data.url != null))
+			{
+				this.loadDescriptor(data, mxUtils.bind(this, function(e)
+				{
+					doLoad(getData(), evt);
+				}), mxUtils.bind(this, function(e)
+				{
+					this.handleError(e, mxResources.get('errorLoadingFile'));
 				}));
 			}
 			else

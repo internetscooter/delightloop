@@ -27,12 +27,12 @@
 	 * Known file types.
 	 */
 	Editor.prototype.diagramFileTypes = [
-		{description: 'diagramXmlDesc', extension: 'drawio'},
-		{description: 'diagramPngDesc', extension: 'png'},
-		{description: 'diagramSvgDesc', extension: 'svg'},
-		{description: 'diagramHtmlDesc', extension: 'html'},
-		{description: 'diagramXmlDesc', extension: 'xml'}];
-	
+		{description: 'diagramXmlDesc', extension: 'drawio', mimeType: 'text/xml'},
+		{description: 'diagramPngDesc', extension: 'png', mimeType: 'image/png'},
+		{description: 'diagramSvgDesc', extension: 'svg', mimeType: 'image/svg'},
+		{description: 'diagramHtmlDesc', extension: 'html', mimeType: 'text/html'},
+		{description: 'diagramXmlDesc', extension: 'xml', mimeType: 'text/xml'}];
+
 	/**
 	 * Known file types.
 	 */
@@ -207,6 +207,14 @@
 	 * Specifies if custom properties should be enabled.
 	 */
 	Editor.enableCustomProperties = true;
+	
+	/**
+	 * Specifies if custom properties should be enabled.
+	 */
+	Editor.enableServiceWorker = urlParams['pwa'] != '0' &&
+		'serviceWorker' in navigator && (urlParams['offline'] == '1' ||
+		/.*\.diagrams\.net$/.test(window.location.hostname) ||
+		/.*\.draw\.io$/.test(window.location.hostname));
 
 	/**
 	 * Specifies if XML files should be compressed. Default is true.
@@ -377,7 +385,8 @@
         {name: 'fillOpacity', dispName: 'Fill Opacity', type: 'int', min: 0, max: 100, defVal: 100},
         {name: 'strokeOpacity', dispName: 'Stroke Opacity', type: 'int', min: 0, max: 100, defVal: 100},
         {name: 'overflow', dispName: 'Text Overflow', defVal: 'visible', type: 'enum',
-        	enumList: [{val: 'visible', dispName: 'Visible'}, {val: 'hidden', dispName: 'Hidden'}, {val: 'fill', dispName: 'Fill'}, {val: 'width', dispName: 'Width'}]
+        	enumList: [{val: 'visible', dispName: 'Visible'}, {val: 'hidden', dispName: 'Hidden'}, {val: 'block', dispName: 'Block'},
+        		{val: 'fill', dispName: 'Fill'}, {val: 'width', dispName: 'Width'}]
         },
         {name: 'noLabel', dispName: 'Hide Label', type: 'bool', defVal: false},
         {name: 'labelPadding', dispName: 'Label Padding', type: 'float', defVal: 0},
@@ -834,7 +843,7 @@
 			}
 			else
 			{
-				style.fill == '';
+				style.fill = '';
 			}
 			
 			// Applies cell style
@@ -1664,7 +1673,7 @@
 	
 	/**
 	 * Global configuration of the Editor
-	 * see https://desk.draw.io/solution/articles/16000058316
+	 * see https://www.diagrams.net/doc/faq/configure-diagram-editor
 	 * 
 	 * For defaultVertexStyle, defaultEdgeStyle and defaultLibraries, this must be called before
 	 * mxSettings.load via global config variable window.mxLoadSettings = false.
@@ -2286,10 +2295,11 @@
 		
 		if (tags != null && tags.length > 0)
 		{
-			var script = document.createElement('script');
-			script.type = 'text/javascript';
-			script.src = src;
-			tags[0].parentNode.appendChild(script);
+			var s = document.createElement('script');
+			s.setAttribute('type', 'text/javascript');
+			s.setAttribute('src', src);
+			
+			tags[0].parentNode.appendChild(s);
 		}
 		
 		// Overrides position relative for block elements to fix
@@ -3888,7 +3898,7 @@
 	            option.style.paddingTop = '5px';
 	            div.appendChild(option);
 	            
-	            var help = ui.menus.createHelpLink('https://desk.draw.io/support/solutions/articles/16000032875');
+	            var help = ui.menus.createHelpLink('https://www.diagrams.net/doc/faq/math-typesetting');
 	            help.style.position = 'relative';
 	            help.style.marginLeft = '6px';
 	            help.style.top = '2px';
@@ -7317,7 +7327,7 @@
 		{
 			var helpBtn = mxUtils.button(mxResources.get('help'), function()
 			{
-				graph.openLink('https://desk.draw.io/support/solutions/articles/16000048947');
+				graph.openLink('https://www.diagrams.net/doc/faq/print-diagram');
 			});
 			
 			helpBtn.className = 'geBtn';

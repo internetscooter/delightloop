@@ -2032,7 +2032,7 @@ Graph.prototype.init = function(container)
 	var graphGetCellsForUngroup = mxGraph.prototype.getCellsForUngroup;
 	Graph.prototype.getCellsForUngroup = function(cells)
 	{
-		cells = graphGetCellsForGroup.apply(this, arguments);
+		cells = graphGetCellsForUngroup.apply(this, arguments);
 		var result = [];
 		
 		// Filters selection cells with the same parent
@@ -6761,9 +6761,8 @@ if (typeof mxVertexHandler != 'undefined')
 							
 							if (rows.length > 0)
 							{
-								var cell = (clone) ? this.cloneCell(cells[i]) : cells[i];
-								
-								var sourceCols = this.model.getChildCells(cell, true);
+								cells[i] = (clone) ? this.cloneCell(cells[i]) : cells[i];
+								var sourceCols = this.model.getChildCells(cells[i], true);
 								var cols = this.model.getChildCells(rows[0], true);
 								var count = cols.length - sourceCols.length;
 								
@@ -6777,7 +6776,7 @@ if (typeof mxVertexHandler != 'undefined')
 										{
 											col.value = '';
 											
-											this.model.add(cell, col);
+											this.model.add(cells[i], col);
 										}
 									}
 								}
@@ -6790,7 +6789,7 @@ if (typeof mxVertexHandler != 'undefined')
 								}
 								
 								// Updates column widths
-								sourceCols = this.model.getChildCells(cell, true);
+								sourceCols = this.model.getChildCells(cells[i], true);
 								
 								for (var j = 0; j < cols.length; j++)
 								{
@@ -8621,7 +8620,7 @@ if (typeof mxVertexHandler != 'undefined')
 		 */
 		Graph.prototype.addForeignObjectWarning = function(canvas, root)
 		{
-			if (root.getElementsByTagName('foreignObject').length > 0)
+			if (urlParams['svg-warning'] != '0' && root.getElementsByTagName('foreignObject').length > 0)
 			{
 				var sw = canvas.createElement('switch');
 				var g1 = canvas.createElement('g');
