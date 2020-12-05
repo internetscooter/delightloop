@@ -6,14 +6,13 @@ This is a digital whiteboard tailored to [Delight Loop](https://www.delightloop.
 License
 -------
 The source code in this repo is licensed under the Apache v2.
-=======
+
 ![Delight Loop Example](delightloop_network.png)
 
 
 Development
 -----------
 
-=======
 This is in active developent on [github](https://github.com/internetscooter/delightloop) and closely follows diagrams.net [drawio](https://github.com/jgraph/drawio), hence the use of "delightloop" default branch. The development heavily focuses on reuse and feeding back new features to diagrams.net. The aim of this project is providing a subset of features that are presented as intuitively as possible to users (with diagrams being compatible with diagrams.net)
 
 Live Current Version
